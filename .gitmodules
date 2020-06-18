@@ -1,0 +1,6 @@
+[submodule "ext/cxxopts"]
+	path = ext/cxxopts
+	url = https://github.com/kjetand/cxxopts
+[submodule "ext/termcolor"]
+	path = ext/termcolor
+	url = https://github.com/kjetand/termcolor
