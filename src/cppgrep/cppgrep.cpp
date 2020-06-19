@@ -163,11 +163,14 @@ int klang::cppgrep::main(int argc, const char* argv[])
     }
 
     for (const auto& source : opts.files) {
-        if (fs::exists(source)) {
-            grep(source, opts);
-        } else {
-            std::puts("File does not exist");
+        if (!fs::exists(source)) {
+            std::cout << "File " << source << " doesn't exist" << '\n';
+            return 2;
         }
+    }
+
+    for (const auto& source : opts.files) {
+        grep(source, opts);
     }
     return 0;
 }
