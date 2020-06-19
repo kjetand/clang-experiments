@@ -1,7 +1,8 @@
 #include "cppgrep.hpp"
 
 #include <filesystem>
-#include <memory>
+#include <string_view>
+#include <vector>
 
 #include <clang-c/Index.h>
 #include <cxxopts.hpp>
@@ -84,26 +85,28 @@ struct printer {
     }
 };
 
-void print_record_type(const CXCursor& cursor, std::string_view tag) noexcept
+void print_record_type(const CXCursor& cursor, const std::vector<std::string_view>& tags) noexcept
 {
     auto location = get_line_info(cursor);
     std::cout << termcolor::blue << location.line << ":" << location.column << termcolor::reset;
     std::cout << " " << clang_getCString(clang_getCursorSpelling(cursor));
-    std::cout << " " << termcolor::yellow << "[" << tag << "]" << termcolor::reset;
+    for (auto tag : tags) {
+        std::cout << " " << termcolor::yellow << "[" << tag << "]" << termcolor::reset;
+    }
     std::cout << '\n';
 }
 
 void print_if_class(const CXCursor& cursor) noexcept
 {
     if (clang_getCursorKind(cursor) == CXCursor_ClassDecl) {
-        print_record_type(cursor, "class");
+        print_record_type(cursor, { "class" });
     }
 }
 
 void print_if_struct(const CXCursor& cursor) noexcept
 {
     if (clang_getCursorKind(cursor) == CXCursor_StructDecl) {
-        print_record_type(cursor, "struct");
+        print_record_type(cursor, { "struct" });
     }
 }
 
@@ -111,10 +114,10 @@ void print_if_template(const CXCursor& cursor) noexcept
 {
     auto kind = clang_getCursorKind(cursor);
     if (kind == CXCursor_ClassTemplate) {
-        print_record_type(cursor, "template");
+        print_record_type(cursor, { "template" });
     }
     if (kind == CXCursor_ClassTemplatePartialSpecialization) {
-        print_record_type(cursor, "template partial specialization");
+        print_record_type(cursor, { "template", "partial specialization" });
     }
 }
 
@@ -122,13 +125,13 @@ void print_if_function(const CXCursor& cursor) noexcept
 {
     auto kind = clang_getCursorKind(cursor);
     if (kind == CXCursor_FunctionDecl) {
-        print_record_type(cursor, "function");
+        print_record_type(cursor, { "function" });
     }
     if (kind == CXCursor_FunctionTemplate) {
-        print_record_type(cursor, "function template");
+        print_record_type(cursor, { "function", "template" });
     }
     if (kind == CXCursor_ConversionFunction) {
-        print_record_type(cursor, "conversion function");
+        print_record_type(cursor, { "conversion function" });
     }
 }
 
