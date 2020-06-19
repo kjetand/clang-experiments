@@ -3,7 +3,6 @@ Developer tools for C++ built over `libclang`.
 
 ## `cppgrep`
 ```text
-$ cppgrep -h
 Greps intelligently through C++ code
 Usage:
   cppgrep [OPTION...] positional parameters
@@ -11,6 +10,7 @@ Usage:
   -h, --help      Print usage
   -c, --class     Grep for classes
   -t, --template  Grep for templates
+  -s, --struct    Grep for structs
 ```
 
 Currently under development...

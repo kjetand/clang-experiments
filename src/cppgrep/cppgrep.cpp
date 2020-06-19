@@ -14,6 +14,7 @@ namespace klang::cppgrep {
 struct cli_options {
     bool grep_classes { false };
     bool grep_templates { false };
+    bool grep_structs { false };
     std::vector<fs::path> files;
 };
 
@@ -24,6 +25,7 @@ cli_options parse_args(int argc, const char* argv[])
     opts.add_options()("h,help", "Print usage");
     opts.add_options()("c,class", "Grep for classes");
     opts.add_options()("t,template", "Grep for templates");
+    opts.add_options()("s,struct", "Grep for structs");
     opts.add_options()("positional", "Positional arguments", cxxopts::value<std::vector<fs::path>>(cli_opts.files));
 
     std::vector<std::string> positional { "positional" };
@@ -38,6 +40,9 @@ cli_options parse_args(int argc, const char* argv[])
     }
     if (result.count("template")) {
         cli_opts.grep_templates = true;
+    }
+    if (result.count("struct")) {
+        cli_opts.grep_structs = true;
     }
     return cli_opts;
 }
@@ -62,11 +67,13 @@ struct printer {
 
     print_type print_class = &print_nop;
     print_type print_template = &print_nop;
+    print_type print_struct = &print_nop;
 
     void operator()(const CXCursor& cursor) const noexcept
     {
         print_class(cursor);
         print_template(cursor);
+        print_struct(cursor);
     }
 };
 
@@ -83,6 +90,13 @@ void print_if_class(const CXCursor& cursor) noexcept
 {
     if (clang_getCursorKind(cursor) == CXCursor_ClassDecl) {
         print_record_type(cursor, "class");
+    }
+}
+
+void print_if_struct(const CXCursor& cursor) noexcept
+{
+    if (clang_getCursorKind(cursor) == CXCursor_StructDecl) {
+        print_record_type(cursor, "struct");
     }
 }
 
@@ -104,6 +118,9 @@ void setup_printer(printer* print, const cli_options& opts) noexcept
     }
     if (opts.grep_templates) {
         print->print_template = &print_if_template;
+    }
+    if (opts.grep_structs) {
+        print->print_struct = &print_if_struct;
     }
 }
 

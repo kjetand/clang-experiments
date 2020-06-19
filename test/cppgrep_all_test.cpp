@@ -9,6 +9,6 @@ auto TEMPLATES_HPP = (RESOURCES / "templates.hpp").string();
 
 int main()
 {
-    std::array<const char*, 5> argv { "cppgrep", "-c", "-t", PEOPLE_CPP.c_str(), TEMPLATES_HPP.c_str() };
+    std::array argv { "cppgrep", "-c", "-t", "-s", PEOPLE_CPP.c_str(), TEMPLATES_HPP.c_str() };
     return klang::cppgrep::main(argv.size(), argv.data());
 }
