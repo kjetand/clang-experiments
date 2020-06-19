@@ -6,4 +6,4 @@ target_include_directories(lib_cppgrep PRIVATE
 target_link_libraries(lib_cppgrep PUBLIC ${LLVM_LIBRARY})
 
 add_executable(cppgrep cppgrep/main.cpp)
-target_link_libraries(cppgrep PRIVATE lib_cppgrep)
+target_link_libraries(cppgrep PRIVATE project_warnings lib_cppgrep)

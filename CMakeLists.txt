@@ -7,7 +7,11 @@ endif ()
 
 set(CMAKE_CXX_STANDARD 20)
 
+add_library(project_warnings INTERFACE)
+
 if (MSVC)
+  target_compile_options(project_warnings INTERFACE /W4 /WX "/permissive-")
+
   if (NOT LLVM_ROOT)
     message(FATAL_ERROR "LLVM_ROOT is missing")
   endif ()
