@@ -18,6 +18,11 @@ public:
     {
     }
 
+    auto get_info() const noexcept -> const auto&
+    {
+        return _info;
+    }
+
     ~person() = default;
 
 private:
@@ -30,5 +35,16 @@ struct collection {
 
 class people : public collection<person> {
 };
+
+constexpr auto add(const int a, const int b)
+{
+    return a + b;
+}
+
+template <typename T>
+auto multiply(T a, T b) noexcept
+{
+    return a * b;
+}
 
 }

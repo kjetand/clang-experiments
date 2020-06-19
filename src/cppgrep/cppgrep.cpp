@@ -15,6 +15,7 @@ struct cli_options {
     bool grep_classes { false };
     bool grep_templates { false };
     bool grep_structs { false };
+    bool grep_functions { false };
     std::vector<fs::path> files;
 };
 
@@ -26,6 +27,7 @@ cli_options parse_args(int argc, const char* argv[])
     opts.add_options()("c,class", "Grep for classes");
     opts.add_options()("t,template", "Grep for templates");
     opts.add_options()("s,struct", "Grep for structs");
+    opts.add_options()("f,function", "Grep for functions");
     opts.add_options()("positional", "Positional arguments", cxxopts::value<std::vector<fs::path>>(cli_opts.files));
 
     std::vector<std::string> positional { "positional" };
@@ -43,6 +45,9 @@ cli_options parse_args(int argc, const char* argv[])
     }
     if (result.count("struct")) {
         cli_opts.grep_structs = true;
+    }
+    if (result.count("function")) {
+        cli_opts.grep_functions = true;
     }
     return cli_opts;
 }
@@ -68,12 +73,14 @@ struct printer {
     print_type print_class = &print_nop;
     print_type print_template = &print_nop;
     print_type print_struct = &print_nop;
+    print_type print_function = &print_nop;
 
     void operator()(const CXCursor& cursor) const noexcept
     {
         print_class(cursor);
         print_template(cursor);
         print_struct(cursor);
+        print_function(cursor);
     }
 };
 
@@ -111,6 +118,20 @@ void print_if_template(const CXCursor& cursor) noexcept
     }
 }
 
+void print_if_function(const CXCursor& cursor) noexcept
+{
+    auto kind = clang_getCursorKind(cursor);
+    if (kind == CXCursor_FunctionDecl) {
+        print_record_type(cursor, "function");
+    }
+    if (kind == CXCursor_FunctionTemplate) {
+        print_record_type(cursor, "function template");
+    }
+    if (kind == CXCursor_ConversionFunction) {
+        print_record_type(cursor, "conversion function");
+    }
+}
+
 void setup_printer(printer* print, const cli_options& opts) noexcept
 {
     if (opts.grep_classes) {
@@ -121,6 +142,9 @@ void setup_printer(printer* print, const cli_options& opts) noexcept
     }
     if (opts.grep_structs) {
         print->print_struct = &print_if_struct;
+    }
+    if (opts.grep_functions) {
+        print->print_function = &print_if_function;
     }
 }
 
