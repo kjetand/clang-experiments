@@ -17,6 +17,7 @@ struct cli_options {
     bool grep_templates { false };
     bool grep_structs { false };
     bool grep_functions { false };
+    bool grep_variables { false };
     std::vector<fs::path> files;
 };
 
@@ -25,10 +26,11 @@ cli_options parse_args(int argc, const char* argv[])
     cli_options cli_opts {};
     cxxopts::Options opts("cppgrep", "Greps intelligently through C++ code");
     opts.add_options()("h,help", "Print usage");
-    opts.add_options()("c,class", "Grep for classes");
-    opts.add_options()("t,template", "Grep for templates");
-    opts.add_options()("s,struct", "Grep for structs");
-    opts.add_options()("f,function", "Grep for functions");
+    opts.add_options()("c,class", "Grep for class declarations");
+    opts.add_options()("s,struct", "Grep for struct declarations");
+    opts.add_options()("t,template", "Grep for class/struct template declarations");
+    opts.add_options()("f,function", "Grep for function declarations");
+    opts.add_options()("v,variable", "Grep for variable/member/param declarations");
     opts.add_options()("positional", "Positional arguments", cxxopts::value<std::vector<fs::path>>(cli_opts.files));
 
     std::vector<std::string> positional { "positional" };
@@ -49,6 +51,9 @@ cli_options parse_args(int argc, const char* argv[])
     }
     if (result.count("function")) {
         cli_opts.grep_functions = true;
+    }
+    if (result.count("variable")) {
+        cli_opts.grep_variables = true;
     }
     return cli_opts;
 }
@@ -75,6 +80,7 @@ struct printer {
     print_type print_template = &print_nop;
     print_type print_struct = &print_nop;
     print_type print_function = &print_nop;
+    print_type print_variable = &print_nop;
 
     void operator()(const CXCursor& cursor) const noexcept
     {
@@ -82,6 +88,7 @@ struct printer {
         print_template(cursor);
         print_struct(cursor);
         print_function(cursor);
+        print_variable(cursor);
     }
 };
 
@@ -135,6 +142,18 @@ void print_if_function(const CXCursor& cursor) noexcept
     }
 }
 
+void print_if_variable(const CXCursor& cursor) noexcept
+{
+    auto kind = clang_getCursorKind(cursor);
+    if (kind == CXCursor_VarDecl) {
+        print_record_type(cursor, { "variable" });
+    } else if (kind == CXCursor_FieldDecl) {
+        print_record_type(cursor, { "member" });
+    } else if (kind == CXCursor_ParmDecl) {
+        print_record_type(cursor, { "param" });
+    }
+}
+
 void setup_printer(printer* print, const cli_options& opts) noexcept
 {
     if (opts.grep_classes) {
@@ -148,6 +167,9 @@ void setup_printer(printer* print, const cli_options& opts) noexcept
     }
     if (opts.grep_functions) {
         print->print_function = &print_if_function;
+    }
+    if (opts.grep_variables) {
+        print->print_variable = &print_if_variable;
     }
 }
 

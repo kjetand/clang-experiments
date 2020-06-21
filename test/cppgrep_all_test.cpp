@@ -5,10 +5,9 @@
 #include <array>
 
 auto PEOPLE_CPP = (RESOURCES / "people.cpp").string();
-auto TEMPLATES_HPP = (RESOURCES / "templates.hpp").string();
 
 int main()
 {
-    std::array argv { "cppgrep", "-cstf", PEOPLE_CPP.c_str(), TEMPLATES_HPP.c_str() };
+    std::array argv { "cppgrep", "-cstfv", PEOPLE_CPP.c_str() };
     return klang::cppgrep::main(argv.size(), argv.data());
 }

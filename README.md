@@ -8,9 +8,11 @@ Usage:
   cppgrep [OPTION...] positional parameters
 
   -h, --help      Print usage
-  -c, --class     Grep for classes
-  -t, --template  Grep for templates
-  -s, --struct    Grep for structs
+  -c, --class     Grep for class declarations
+  -s, --struct    Grep for struct declarations
+  -t, --template  Grep for class/struct template declarations
+  -f, --function  Grep for function declarations
+  -v, --variable  Grep for variable declarations
 ```
 
 Currently under development...
