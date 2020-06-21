@@ -21,6 +21,39 @@ struct cli_options {
     std::vector<fs::path> files;
 };
 
+class translation_unit {
+public:
+    explicit translation_unit(const fs::path& source) noexcept
+        : _index(clang_createIndex(0, 0))
+        , _unit(clang_parseTranslationUnit(_index, source.string().c_str(), nullptr, 0, nullptr, 0, CXTranslationUnit_SingleFileParse))
+    {
+    }
+
+    ~translation_unit() noexcept
+    {
+        clang_disposeTranslationUnit(_unit);
+        clang_disposeIndex(_index);
+    }
+
+    template <typename F>
+    void visit_children(F&& visitor) const noexcept
+    {
+        static CXChildVisitResult (*visit)(CXCursor) { nullptr };
+        visit = visitor;
+        auto cursor = clang_getTranslationUnitCursor(_unit);
+
+        clang_visitChildren(
+            cursor, [](auto cursor, auto, auto) {
+                return visit(cursor);
+            },
+            nullptr);
+    }
+
+private:
+    CXIndex _index { nullptr };
+    CXTranslationUnit _unit { nullptr };
+};
+
 cli_options parse_args(int argc, const char* argv[])
 {
     cli_options cli_opts {};
@@ -181,21 +214,13 @@ void grep(const fs::path& source, cli_options cli_opts)
     opts = std::move(cli_opts);
     setup_printer(&print, opts);
 
-    auto index = clang_createIndex(0, 0);
-    auto unit = clang_parseTranslationUnit(index, source.string().c_str(), nullptr, 0, nullptr, 0, CXTranslationUnit_SingleFileParse);
-    auto cursor = clang_getTranslationUnitCursor(unit);
-
     std::cout << termcolor::green << source << termcolor::reset << '\n';
 
-    clang_visitChildren(
-        cursor, [](auto cursor, auto, auto) {
-            print(cursor);
-            return CXChildVisit_Recurse;
-        },
-        nullptr);
-
-    clang_disposeTranslationUnit(unit);
-    clang_disposeIndex(index);
+    translation_unit tu(source);
+    tu.visit_children([](auto cursor) {
+        print(cursor);
+        return CXChildVisit_Recurse;
+    });
 }
 
 }
