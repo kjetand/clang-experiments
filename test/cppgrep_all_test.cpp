@@ -9,5 +9,5 @@ auto PEOPLE_CPP = (RESOURCES / "people.cpp").string();
 int main()
 {
     std::array argv { "cppgrep", "-cstfv", PEOPLE_CPP.c_str() };
-    return klang::cppgrep::main(argv.size(), argv.data());
+    return static_cast<int>(klang::cppgrep::main(argv.size(), argv.data()));
 }

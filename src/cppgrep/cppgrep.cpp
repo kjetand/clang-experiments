@@ -225,26 +225,28 @@ void grep(const fs::path& source, cli_options cli_opts)
 
 }
 
-int klang::cppgrep::main(int argc, const char* argv[])
+klang::cppgrep::result_type klang::cppgrep::main(int argc, const char* argv[])
 {
+    using klang::cppgrep::result_type;
+
     cli_options opts;
 
     try {
         opts = parse_args(argc, argv);
     } catch (const std::exception& ex) {
         std::puts(ex.what());
-        return 1;
+        return result_type::parse_args_failure;
     }
 
     for (const auto& source : opts.files) {
         if (!fs::exists(source)) {
             std::cout << "File " << source << " doesn't exist" << '\n';
-            return 2;
+            return result_type::file_not_found_failure;
         }
     }
 
     for (const auto& source : opts.files) {
         grep(source, opts);
     }
-    return 0;
+    return result_type::success;
 }

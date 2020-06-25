@@ -6,6 +6,7 @@
 
 int main()
 {
+    using klang::cppgrep::result_type;
     std::array<const char*, 2> argv { "cppgrep", "/path/that/does/not/exist" };
-    return klang::cppgrep::main(argv.size(), argv.data()) == 2 ? 0 : 1;
+    return klang::cppgrep::main(argv.size(), argv.data()) == result_type::file_not_found_failure ? 0 : 1;
 }

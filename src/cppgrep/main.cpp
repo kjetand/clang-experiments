@@ -2,5 +2,5 @@
 
 int main(int argc, const char* argv[])
 {
-    return klang::cppgrep::main(argc, argv);
+    return static_cast<int>(klang::cppgrep::main(argc, argv));
 }
