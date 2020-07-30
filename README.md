@@ -28,8 +28,8 @@ environment variable, usually located in `C:\Program Files\LLVM\bin`. Build with
 ```text
 mkdir build
 cd build
-cmake .. -DLLVM_ROOT="C:\Program Files\LLVM" -DCMAKE_BUILD_TYPE:STRING=Release
-cmake --build . --config "Release"
+cmake .. -DLLVM_ROOT="C:\Program Files\LLVM"
+cmake --build .
 ```
 
 ### Linux
@@ -42,7 +42,6 @@ mkdir build
 cd build
 cmake ..
 make
-make check
 ```
 
 ## License
