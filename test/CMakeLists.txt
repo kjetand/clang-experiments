@@ -9,7 +9,7 @@ add_definitions(-DRESOURCE_DIR="${CMAKE_BINARY_DIR}/resources")
 
 function(define_cppgrep_test name)
   add_executable(${name}_test ${CMAKE_CURRENT_SOURCE_DIR}/${name}_test.cpp)
-  target_link_libraries(${name}_test PRIVATE lib_cppgrep)
+  target_link_libraries(${name}_test PRIVATE project_warnings lib_cppgrep)
   add_test(${name} ${name}_test)
 endfunction()
 

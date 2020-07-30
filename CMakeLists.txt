@@ -18,6 +18,32 @@ if (MSVC)
   set(LIBCLANG_LIBRARY ${LLVM_ROOT}/lib/libclang.lib)
 else ()
   message(STATUS "Building for Linux")
+  target_compile_options(project_warnings INTERFACE
+          -Wall
+          -Werror
+          -Wextra
+          -Wshadow
+          -Wnon-virtual-dtor
+          -Wold-style-cast
+          -Wcast-align
+          -Wunused
+          -Woverloaded-virtual
+          -Wpedantic
+          -Wconversion
+          -Wsign-conversion
+          -Wnull-dereference
+          -Wdouble-promotion
+          -Wformat=2)
+
+  if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+    target_compile_options(project_warnings INTERFACE
+            -Wmisleading-indentation
+            -Wduplicated-cond
+            -Wduplicated-branches
+            -Wlogical-op
+            -Wuseless-cast)
+  endif ()
+
   find_program(LLVM_CONFIG_EXE "llvm-config")
 
   if (LLVM_CONFIG_EXE)
