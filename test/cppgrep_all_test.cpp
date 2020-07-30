@@ -7,6 +7,6 @@
 int main()
 {
     const auto cpp_file = "\"" + (RESOURCES / "people.cpp").generic_string() + "\"";
-    std::array argv { "cppgrep", "-cstfv", cpp_file.c_str() };
+    std::array argv { "cppgrep", cpp_file.c_str() };
     return static_cast<int>(klang::cppgrep::main(static_cast<int>(argv.size()), argv.data()));
 }

@@ -9,11 +9,11 @@ Usage:
   cppgrep [OPTION...] positional parameters
 
   -h, --help      Print usage
-  -c, --class     Grep for class declarations
-  -s, --struct    Grep for struct declarations
-  -t, --template  Grep for class/struct template declarations
-  -f, --function  Grep for function declarations
-  -v, --variable  Grep for variable declarations
+      --class     Grep for class declarations
+      --struct    Grep for struct declarations
+      --template  Grep for class/struct template declarations
+      --function  Grep for function declarations
+      --variable  Grep for variable/member/param declarations
 
 $ cppgrep -vf repos/klang/src/cppgrep/cppgrep.cpp
 

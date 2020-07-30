@@ -19,6 +19,20 @@ struct cli_options {
     bool grep_functions { false };
     bool grep_variables { false };
     std::vector<fs::path> files;
+
+    [[nodiscard]] bool at_least_one_enabled() const noexcept
+    {
+        return grep_classes || grep_templates || grep_structs || grep_functions || grep_variables;
+    }
+
+    void enable_all() noexcept
+    {
+        grep_classes = true;
+        grep_templates = true;
+        grep_structs = true;
+        grep_functions = true;
+        grep_variables = true;
+    }
 };
 
 class translation_unit {
@@ -59,11 +73,11 @@ cli_options parse_args(int argc, const char* argv[])
     cli_options cli_opts {};
     cxxopts::Options opts("cppgrep", "Greps intelligently through C++ code");
     opts.add_options()("h,help", "Print usage");
-    opts.add_options()("c,class", "Grep for class declarations");
-    opts.add_options()("s,struct", "Grep for struct declarations");
-    opts.add_options()("t,template", "Grep for class/struct template declarations");
-    opts.add_options()("f,function", "Grep for function declarations");
-    opts.add_options()("v,variable", "Grep for variable/member/param declarations");
+    opts.add_options()("class", "Grep for class declarations");
+    opts.add_options()("struct", "Grep for struct declarations");
+    opts.add_options()("template", "Grep for class/struct template declarations");
+    opts.add_options()("function", "Grep for function declarations");
+    opts.add_options()("variable", "Grep for variable/member/param declarations");
     opts.add_options()("positional", "Positional arguments", cxxopts::value<std::vector<fs::path>>(cli_opts.files));
 
     std::vector<std::string> positional { "positional" };
@@ -87,6 +101,9 @@ cli_options parse_args(int argc, const char* argv[])
     }
     if (result.count("variable")) {
         cli_opts.grep_variables = true;
+    }
+    if (!cli_opts.at_least_one_enabled()) {
+        cli_opts.enable_all();
     }
     return cli_opts;
 }
