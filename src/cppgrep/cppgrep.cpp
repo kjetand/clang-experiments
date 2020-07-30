@@ -1,5 +1,6 @@
 #include "cppgrep.hpp"
 
+#include <array>
 #include <filesystem>
 #include <string_view>
 #include <vector>
@@ -35,11 +36,13 @@ struct cli_options {
     }
 };
 
+constexpr std::array<const char*, 1> CLANG_ARGS { "-std=c++17" };
+
 class translation_unit {
 public:
     explicit translation_unit(const fs::path& source) noexcept
-        : _index(clang_createIndex(0, 0))
-        , _unit(clang_parseTranslationUnit(_index, source.string().c_str(), nullptr, 0, nullptr, 0, CXTranslationUnit_SingleFileParse))
+        : _index(clang_createIndex(true, false))
+        , _unit(clang_parseTranslationUnit(_index, source.string().c_str(), CLANG_ARGS.data(), static_cast<int>(CLANG_ARGS.size()), nullptr, 0, 0))
     {
     }
 
@@ -236,6 +239,11 @@ void grep(const fs::path& source, cli_options cli_opts)
 
     translation_unit tu(source);
     tu.visit_children([](auto cursor) {
+        auto location = clang_getCursorLocation(cursor);
+
+        if (clang_Location_isInSystemHeader(location)) {
+            return CXChildVisit_Continue;
+        }
         print(cursor);
         return CXChildVisit_Recurse;
     });
