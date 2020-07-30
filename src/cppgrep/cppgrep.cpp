@@ -43,8 +43,8 @@ public:
         auto cursor = clang_getTranslationUnitCursor(_unit);
 
         clang_visitChildren(
-            cursor, [](auto cursor, auto, auto) {
-                return visit(cursor);
+            cursor, [](auto c, auto, auto) {
+                return visit(c);
             },
             nullptr);
     }
