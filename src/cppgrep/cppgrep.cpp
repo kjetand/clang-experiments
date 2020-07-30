@@ -1,7 +1,7 @@
 #include "cppgrep.hpp"
 
 #include <array>
-#include <filesystem>
+#include <optional>
 #include <string_view>
 #include <vector>
 
@@ -124,134 +124,120 @@ struct line_info {
     return { line, column };
 }
 
-void print_nop(const CXCursor&) noexcept { }
-
-struct printer {
-    using print_type = void (*)(const CXCursor&);
-
-    print_type print_class = &print_nop;
-    print_type print_template = &print_nop;
-    print_type print_struct = &print_nop;
-    print_type print_function = &print_nop;
-    print_type print_variable = &print_nop;
-
-    void operator()(const CXCursor& cursor) const noexcept
-    {
-        print_class(cursor);
-        print_template(cursor);
-        print_struct(cursor);
-        print_function(cursor);
-        print_variable(cursor);
-    }
-};
-
-void print_record_type(const CXCursor& cursor, const std::vector<std::string_view>& tags) noexcept
+[[nodiscard]] grep_entry extract(const CXCursor& cursor, std::vector<std::string> tags) noexcept
 {
+    grep_entry result;
+
     auto location = get_line_info(cursor);
-    std::cout << termcolor::blue << location.line << ":" << location.column << termcolor::reset;
-    std::cout << " " << clang_getCString(clang_getCursorSpelling(cursor));
-    for (auto tag : tags) {
-        std::cout << " " << termcolor::yellow << "[" << tag << "]" << termcolor::reset;
-    }
-    std::cout << '\n';
+    result.line = location.line;
+    result.column = location.column;
+    result.identifier = clang_getCString(clang_getCursorSpelling(cursor));
+    result.tags = std::move(tags);
+
+    return result;
 }
 
-void print_if_class(const CXCursor& cursor) noexcept
-{
-    if (clang_getCursorKind(cursor) == CXCursor_ClassDecl) {
-        print_record_type(cursor, { "class" });
-    }
-}
-
-void print_if_struct(const CXCursor& cursor) noexcept
-{
-    if (clang_getCursorKind(cursor) == CXCursor_StructDecl) {
-        print_record_type(cursor, { "struct" });
-    }
-}
-
-void print_if_template(const CXCursor& cursor) noexcept
+[[nodiscard]] std::optional<grep_entry> extract_if(const cli_options& opts, const CXCursor& cursor) noexcept
 {
     auto kind = clang_getCursorKind(cursor);
-    if (kind == CXCursor_ClassTemplate) {
-        print_record_type(cursor, { "template" });
-    }
-    if (kind == CXCursor_ClassTemplatePartialSpecialization) {
-        print_record_type(cursor, { "template", "partial specialization" });
-    }
-}
 
-void print_if_function(const CXCursor& cursor) noexcept
-{
-    auto kind = clang_getCursorKind(cursor);
-    if (kind == CXCursor_FunctionDecl) {
-        print_record_type(cursor, { "function" });
-    }
-    if (kind == CXCursor_FunctionTemplate) {
-        print_record_type(cursor, { "function", "template" });
-    }
-    if (kind == CXCursor_ConversionFunction) {
-        print_record_type(cursor, { "conversion function" });
-    }
-}
-
-void print_if_variable(const CXCursor& cursor) noexcept
-{
-    auto kind = clang_getCursorKind(cursor);
-    if (kind == CXCursor_VarDecl) {
-        print_record_type(cursor, { "variable" });
-    } else if (kind == CXCursor_FieldDecl) {
-        print_record_type(cursor, { "member" });
-    } else if (kind == CXCursor_ParmDecl) {
-        print_record_type(cursor, { "param" });
-    }
-}
-
-void setup_printer(printer* print, const cli_options& opts) noexcept
-{
-    if (opts.grep_classes) {
-        print->print_class = &print_if_class;
+    if (opts.grep_classes && kind == CXCursor_ClassDecl) {
+        return extract(cursor, { "class" });
     }
     if (opts.grep_templates) {
-        print->print_template = &print_if_template;
+        if (kind == CXCursor_ClassTemplate) {
+            return extract(cursor, { "template" });
+        }
+        if (kind == CXCursor_ClassTemplatePartialSpecialization) {
+            return extract(cursor, { "template", "partial specialization" });
+        }
     }
-    if (opts.grep_structs) {
-        print->print_struct = &print_if_struct;
+    if (opts.grep_structs && kind == CXCursor_StructDecl) {
+        return extract(cursor, { "struct" });
     }
     if (opts.grep_functions) {
-        print->print_function = &print_if_function;
+        if (kind == CXCursor_FunctionDecl) {
+            return extract(cursor, { "function" });
+        }
+        if (kind == CXCursor_FunctionTemplate) {
+            return extract(cursor, { "function", "template" });
+        }
+        if (kind == CXCursor_ConversionFunction) {
+            return extract(cursor, { "conversion function" });
+        }
     }
     if (opts.grep_variables) {
-        print->print_variable = &print_if_variable;
+        if (kind == CXCursor_VarDecl) {
+            return extract(cursor, { "variable" });
+        } else if (kind == CXCursor_FieldDecl) {
+            return extract(cursor, { "member" });
+        } else if (kind == CXCursor_ParmDecl) {
+            return extract(cursor, { "param" });
+        }
     }
+    return std::nullopt;
 }
 
-void grep(const fs::path& source, cli_options cli_opts)
+[[nodiscard]] std::optional<grep_result> grep(const fs::path& source, cli_options cli_opts)
 {
     static cli_options opts;
-    static printer print;
+    static grep_result results;
+
+    results = {};
 
     opts = std::move(cli_opts);
-    setup_printer(&print, opts);
-
-    std::cout << termcolor::green << '\n'
-              << source << termcolor::reset << '\n';
+    results.source = source;
 
     translation_unit tu(source);
     tu.visit_children([](auto cursor) {
-        auto location = clang_getCursorLocation(cursor);
-
-        if (clang_Location_isInSystemHeader(location)) {
+        if (auto location = clang_getCursorLocation(cursor); clang_Location_isInSystemHeader(location)) {
             return CXChildVisit_Continue;
         }
-        print(cursor);
+        if (auto entry = extract_if(opts, cursor); entry) {
+            results.entries.emplace_back(std::move(*entry));
+        }
         return CXChildVisit_Recurse;
     });
+    if (results.entries.empty()) {
+        return std::nullopt;
+    }
+    return results;
 }
 
+std::vector<grep_result> grep(const cli_options& opts) noexcept
+{
+    std::vector<grep_result> results;
+
+    for (const auto& source : opts.files) {
+        auto result = grep(source, opts);
+
+        if (result) {
+            results.emplace_back(std::move(*result));
+        }
+    }
+    return results;
 }
 
-klang::cppgrep::result_type klang::cppgrep::main(int argc, const char* argv[])
+void print_grep_results(const std::vector<grep_result>& results) noexcept
+{
+    for (const auto& result : results) {
+        std::cout << termcolor::green << result.source << termcolor::reset << '\n';
+
+        for (const auto& entry : result.entries) {
+            std::cout << termcolor::blue << entry.line << ':' << entry.column << termcolor::reset << ' ' << entry.identifier;
+
+            if (!entry.tags.empty()) {
+                std::cout << ' ';
+            }
+            for (const auto& tag : entry.tags) {
+                std::cout << termcolor::yellow << '[' << tag << ']' << termcolor::reset << ' ';
+            }
+            std::cout << '\n';
+        }
+    }
+}
+
+result_type main(int argc, const char* argv[])
 {
     using klang::cppgrep::result_type;
 
@@ -263,16 +249,8 @@ klang::cppgrep::result_type klang::cppgrep::main(int argc, const char* argv[])
         std::puts(ex.what());
         return result_type::parse_args_failure;
     }
-
-    for (const auto& source : opts.files) {
-        if (!fs::exists(source)) {
-            std::cout << "File " << source << " doesn't exist" << '\n';
-            return result_type::file_not_found_failure;
-        }
-    }
-
-    for (const auto& source : opts.files) {
-        grep(source, opts);
-    }
+    print_grep_results(grep(opts));
     return result_type::success;
+}
+
 }
