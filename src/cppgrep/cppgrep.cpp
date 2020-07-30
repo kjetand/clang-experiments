@@ -214,7 +214,8 @@ void grep(const fs::path& source, cli_options cli_opts)
     opts = std::move(cli_opts);
     setup_printer(&print, opts);
 
-    std::cout << termcolor::green << source << termcolor::reset << '\n';
+    std::cout << termcolor::green << '\n'
+              << source << termcolor::reset << '\n';
 
     translation_unit tu(source);
     tu.visit_children([](auto cursor) {
