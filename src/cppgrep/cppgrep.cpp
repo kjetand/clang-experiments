@@ -36,7 +36,7 @@ struct cli_options {
     }
 };
 
-constexpr std::array<const char*, 1> CLANG_ARGS { "-std=c++17" };
+constexpr std::array CLANG_ARGS { "-std=c++17" };
 
 class translation_unit {
 public:
