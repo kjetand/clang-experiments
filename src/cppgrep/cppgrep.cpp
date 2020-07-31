@@ -111,11 +111,6 @@ cli_options parse_args(int argc, const char* argv[])
     return cli_opts;
 }
 
-struct line_info {
-    unsigned line;
-    unsigned column;
-};
-
 template <auto Constructor>
 class cxstring_owner {
     CXString _str;
@@ -138,21 +133,20 @@ public:
     }
 };
 
-[[nodiscard]] auto get_line_info(const CXCursor& cursor) noexcept -> line_info
+[[nodiscard]] auto get_line_info(const CXCursor& cursor) noexcept
 {
-    unsigned line;
-    unsigned column;
-    clang_getSpellingLocation(clang_getCursorLocation(cursor), nullptr, &line, &column, nullptr);
-    return { line, column };
+    std::pair<unsigned, unsigned> result;
+    clang_getSpellingLocation(clang_getCursorLocation(cursor), nullptr, &result.first, &result.second, nullptr);
+    return result;
 }
 
 [[nodiscard]] grep_entry extract(const CXCursor& cursor, std::vector<std::string> tags) noexcept
 {
     grep_entry result;
 
-    auto location = get_line_info(cursor);
-    result.line = location.line;
-    result.column = location.column;
+    auto [line, column] = get_line_info(cursor);
+    result.line = line;
+    result.column = column;
     result.identifier = cxstring_owner<clang_getCursorSpelling>(cursor).get();
     result.tags = std::move(tags);
 
