@@ -1,8 +1,10 @@
 #include "cppgrep.hpp"
 
 #include <array>
+#include <concepts>
 #include <optional>
 #include <string_view>
+#include <type_traits>
 #include <vector>
 
 #include <clang-c/Index.h>
@@ -111,25 +113,30 @@ cli_options parse_args(int argc, const char* argv[])
     return cli_opts;
 }
 
-template <auto Constructor>
-class cxstring_owner {
-    CXString _str;
+template <typename Factory, typename... Args>
+concept CXStringFactory = std::is_same_v<std::invoke_result_t<Factory, Args...>, CXString>;
+
+template <auto Factory>
+class string_owner {
+    using factory_type = decltype(Factory);
+
+    std::string _str;
 
 public:
     template <typename... Args>
-    explicit cxstring_owner(Args&&... args) noexcept
-        : _str(Constructor(std::forward<Args>(args)...))
+    explicit string_owner(Args&&... args) noexcept
+        requires(std::invocable<factory_type, Args...>&& CXStringFactory<factory_type, Args...>)
     {
+        auto cx_str = Factory(std::forward<Args>(args)...);
+        _str = clang_getCString(cx_str);
+        clang_disposeString(cx_str);
     }
 
-    ~cxstring_owner() noexcept
-    {
-        clang_disposeString(_str);
-    }
+    ~string_owner() noexcept = default;
 
-    [[nodiscard]] std::string get() const noexcept
+    [[nodiscard]] std::string_view get() const noexcept
     {
-        return clang_getCString(_str);
+        return _str;
     }
 };
 
@@ -147,7 +154,7 @@ public:
     auto [line, column] = get_line_info(cursor);
     result.line = line;
     result.column = column;
-    result.identifier = cxstring_owner<clang_getCursorSpelling>(cursor).get();
+    result.identifier = string_owner<clang_getCursorSpelling>(cursor).get();
     result.tags = std::move(tags);
 
     return result;
