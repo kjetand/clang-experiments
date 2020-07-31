@@ -116,6 +116,28 @@ struct line_info {
     unsigned column;
 };
 
+template <auto Constructor>
+class cxstring_owner {
+    CXString _str;
+
+public:
+    template <typename... Args>
+    explicit cxstring_owner(Args&&... args) noexcept
+        : _str(Constructor(std::forward<Args>(args)...))
+    {
+    }
+
+    ~cxstring_owner() noexcept
+    {
+        clang_disposeString(_str);
+    }
+
+    [[nodiscard]] std::string get() const noexcept
+    {
+        return clang_getCString(_str);
+    }
+};
+
 [[nodiscard]] auto get_line_info(const CXCursor& cursor) noexcept -> line_info
 {
     unsigned line;
@@ -131,7 +153,7 @@ struct line_info {
     auto location = get_line_info(cursor);
     result.line = location.line;
     result.column = location.column;
-    result.identifier = clang_getCString(clang_getCursorSpelling(cursor));
+    result.identifier = cxstring_owner<clang_getCursorSpelling>(cursor).get();
     result.tags = std::move(tags);
 
     return result;

@@ -2,6 +2,7 @@
 #define KLANG_CPPGREP_HPP
 
 #include <filesystem>
+#include <string>
 #include <vector>
 
 namespace klang::cppgrep {
