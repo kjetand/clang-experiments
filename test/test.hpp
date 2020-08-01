@@ -9,6 +9,13 @@ namespace fs = std::filesystem;
 #error "Resource directory definition is missing"
 #endif
 
-const fs::path RESOURCES = fs::path { RESOURCE_DIR };
+namespace klang::test {
+
+[[nodiscard]] inline fs::path get_resource_directory()
+{
+    return RESOURCE_DIR;
+}
+
+}
 
 #endif

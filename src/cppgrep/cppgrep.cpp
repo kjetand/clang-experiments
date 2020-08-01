@@ -1,7 +1,6 @@
 #include "cppgrep.hpp"
 
 #include <array>
-#include <concepts>
 #include <optional>
 #include <string_view>
 #include <type_traits>
@@ -42,6 +41,9 @@ struct cli_options {
 constexpr std::array CLANG_ARGS { "-std=c++17" };
 
 class translation_unit {
+    CXIndex _index { nullptr };
+    CXTranslationUnit _unit { nullptr };
+
 public:
     explicit translation_unit(const fs::path& source) noexcept
         : _index(clang_createIndex(1, 0))
@@ -55,6 +57,11 @@ public:
         clang_disposeIndex(_index);
     }
 
+    translation_unit(const translation_unit&) noexcept = default;
+    translation_unit& operator=(const translation_unit&) noexcept = default;
+    translation_unit(translation_unit&&) noexcept = default;
+    translation_unit& operator=(translation_unit&&) noexcept = default;
+
     template <typename F>
     void visit_children(F&& visitor) const noexcept
     {
@@ -63,15 +70,11 @@ public:
         auto cursor = clang_getTranslationUnitCursor(_unit);
 
         clang_visitChildren(
-            cursor, [](auto c, auto, auto) {
+            cursor, [](auto c, auto /*unused*/, auto /*unused*/) {
                 return visit(c);
             },
             nullptr);
     }
-
-private:
-    CXIndex _index { nullptr };
-    CXTranslationUnit _unit { nullptr };
 };
 
 cli_options parse_args(int argc, const char* argv[])
@@ -91,28 +94,28 @@ cli_options parse_args(int argc, const char* argv[])
 
     const auto result = opts.parse(argc, const_cast<char**&>(argv)); // :(
 
-    if (result.count("help")) {
+    if (result.count("help") != 0U) {
         std::puts(opts.help().c_str());
     }
-    if (!result.count("query") || cli_opts.query.empty()) {
+    if (result.count("query") == 0U || cli_opts.query.empty()) {
         throw std::runtime_error("Missing grep query");
     }
     if (cli_opts.files.empty()) {
         throw std::runtime_error("Missing at least one source input file");
     }
-    if (result.count("class")) {
+    if (result.count("class") != 0U) {
         cli_opts.grep_classes = true;
     }
-    if (result.count("template")) {
+    if (result.count("template") != 0U) {
         cli_opts.grep_templates = true;
     }
-    if (result.count("struct")) {
+    if (result.count("struct") != 0U) {
         cli_opts.grep_structs = true;
     }
-    if (result.count("function")) {
+    if (result.count("function") != 0U) {
         cli_opts.grep_functions = true;
     }
-    if (result.count("variable")) {
+    if (result.count("variable") != 0U) {
         cli_opts.grep_variables = true;
     }
     if (!cli_opts.at_least_one_enabled()) {
@@ -141,6 +144,11 @@ public:
     }
 
     ~string_owner() noexcept = default;
+
+    string_owner(const string_owner&) noexcept = default;
+    string_owner& operator=(const string_owner&) noexcept = default;
+    string_owner(string_owner&&) noexcept = default;
+    string_owner& operator=(string_owner&&) noexcept = default;
 
     [[nodiscard]] std::string_view get() const noexcept
     {
@@ -205,9 +213,11 @@ public:
     if (opts.grep_variables) {
         if (kind == CXCursor_VarDecl) {
             return extract(opts, cursor, { "variable" });
-        } else if (kind == CXCursor_FieldDecl) {
+        }
+        if (kind == CXCursor_FieldDecl) {
             return extract(opts, cursor, { "member" });
-        } else if (kind == CXCursor_ParmDecl) {
+        }
+        if (kind == CXCursor_ParmDecl) {
             return extract(opts, cursor, { "param" });
         }
     }

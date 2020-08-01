@@ -1,5 +1,3 @@
-#include "test.hpp"
-
 #include <array>
 
 #include <cppgrep/cppgrep.hpp>
