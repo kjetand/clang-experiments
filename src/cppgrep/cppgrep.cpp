@@ -80,7 +80,7 @@ public:
     }
 };
 
-cli_options parse_args(std::span<const char*> args)
+cli_options parse_args(std::span<char*> args)
 {
     cli_options cli_opts {};
     cxxopts::Options opts("cppgrep", "Greps intelligently through C++ code");
@@ -95,7 +95,7 @@ cli_options parse_args(std::span<const char*> args)
 
     opts.parse_positional({ "query", "positional" });
 
-    char** argv = const_cast<char**>(args.data()); // NOLINT :(
+    auto** argv = args.data();
     auto argc = static_cast<int>(args.size());
     const auto result = opts.parse(argc, argv);
 
@@ -292,7 +292,7 @@ void print_grep_results(const std::vector<grep_result>& results) noexcept
     }
 }
 
-result_type main(std::span<const char*> args) noexcept
+result_type main(std::span<char*> args) noexcept
 {
     using klang::cppgrep::result_type;
 

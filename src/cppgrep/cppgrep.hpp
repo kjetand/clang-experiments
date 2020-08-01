@@ -29,7 +29,7 @@ struct grep_result {
 
 [[nodiscard]] std::vector<grep_result> grep(const cli_options& opts) noexcept;
 
-[[nodiscard]] result_type main(std::span<const char*> args) noexcept;
+[[nodiscard]] result_type main(std::span<char*> args) noexcept;
 
 }
 
