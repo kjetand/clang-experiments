@@ -11,8 +11,7 @@ struct cli_options;
 
 enum class result_type : int {
     success = 0,
-    parse_args_failure,
-    file_not_found_failure
+    parse_args_failure
 };
 
 struct grep_entry {

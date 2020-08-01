@@ -15,4 +15,3 @@ endfunction()
 
 define_cppgrep_test(cppgrep_help)
 define_cppgrep_test(cppgrep_all)
-define_cppgrep_test(cppgrep_file_not_found)

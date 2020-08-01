@@ -21,6 +21,7 @@ struct cli_options {
     bool grep_structs { false };
     bool grep_functions { false };
     bool grep_variables { false };
+    std::string query {};
     std::vector<fs::path> files;
 
     [[nodiscard]] bool at_least_one_enabled() const noexcept
@@ -78,19 +79,26 @@ cli_options parse_args(int argc, const char* argv[])
     cli_options cli_opts {};
     cxxopts::Options opts("cppgrep", "Greps intelligently through C++ code");
     opts.add_options()("h,help", "Print usage");
-    opts.add_options()("class", "Grep for class declarations");
-    opts.add_options()("struct", "Grep for struct declarations");
-    opts.add_options()("template", "Grep for class/struct template declarations");
-    opts.add_options()("function", "Grep for function declarations");
-    opts.add_options()("variable", "Grep for variable/member/param declarations");
+    opts.add_options()("class", "Grep for class declarations only");
+    opts.add_options()("struct", "Grep for struct declarations only");
+    opts.add_options()("template", "Grep for class/struct template declarations only");
+    opts.add_options()("function", "Grep for function declarations only");
+    opts.add_options()("variable", "Grep for variable/member/param declarations only");
+    opts.add_options()("q,query", "Grep query string", cxxopts::value<std::string>(cli_opts.query));
     opts.add_options()("positional", "Positional arguments", cxxopts::value<std::vector<fs::path>>(cli_opts.files));
 
-    std::vector<std::string> positional { "positional" };
-    opts.parse_positional(positional.begin(), positional.end());
+    opts.parse_positional({ "query", "positional" });
+
     const auto result = opts.parse(argc, const_cast<char**&>(argv)); // :(
 
     if (result.count("help")) {
         std::puts(opts.help().c_str());
+    }
+    if (!result.count("query") || cli_opts.query.empty()) {
+        throw std::runtime_error("Missing grep query");
+    }
+    if (cli_opts.files.empty()) {
+        throw std::runtime_error("Missing at least one source input file");
     }
     if (result.count("class")) {
         cli_opts.grep_classes = true;
@@ -147,14 +155,19 @@ public:
     return result;
 }
 
-[[nodiscard]] grep_entry extract(const CXCursor& cursor, std::vector<std::string> tags) noexcept
+[[nodiscard]] std::optional<grep_entry> extract(const cli_options& opts, const CXCursor& cursor, std::vector<std::string> tags) noexcept
 {
     grep_entry result;
 
+    const string_owner<clang_getCursorSpelling> spelling(cursor);
+
+    if (spelling.get().find(opts.query) == std::string::npos) {
+        return {};
+    }
     auto [line, column] = get_line_info(cursor);
     result.line = line;
     result.column = column;
-    result.identifier = string_owner<clang_getCursorSpelling>(cursor).get();
+    result.identifier = spelling.get();
     result.tags = std::move(tags);
 
     return result;
@@ -165,40 +178,40 @@ public:
     auto kind = clang_getCursorKind(cursor);
 
     if (opts.grep_classes && kind == CXCursor_ClassDecl) {
-        return extract(cursor, { "class" });
+        return extract(opts, cursor, { "class" });
     }
     if (opts.grep_templates) {
         if (kind == CXCursor_ClassTemplate) {
-            return extract(cursor, { "template" });
+            return extract(opts, cursor, { "template" });
         }
         if (kind == CXCursor_ClassTemplatePartialSpecialization) {
-            return extract(cursor, { "template", "partial specialization" });
+            return extract(opts, cursor, { "template", "partial specialization" });
         }
     }
     if (opts.grep_structs && kind == CXCursor_StructDecl) {
-        return extract(cursor, { "struct" });
+        return extract(opts, cursor, { "struct" });
     }
     if (opts.grep_functions) {
         if (kind == CXCursor_FunctionDecl) {
-            return extract(cursor, { "function" });
+            return extract(opts, cursor, { "function" });
         }
         if (kind == CXCursor_FunctionTemplate) {
-            return extract(cursor, { "function", "template" });
+            return extract(opts, cursor, { "function", "template" });
         }
         if (kind == CXCursor_ConversionFunction) {
-            return extract(cursor, { "conversion function" });
+            return extract(opts, cursor, { "conversion function" });
         }
     }
     if (opts.grep_variables) {
         if (kind == CXCursor_VarDecl) {
-            return extract(cursor, { "variable" });
+            return extract(opts, cursor, { "variable" });
         } else if (kind == CXCursor_FieldDecl) {
-            return extract(cursor, { "member" });
+            return extract(opts, cursor, { "member" });
         } else if (kind == CXCursor_ParmDecl) {
-            return extract(cursor, { "param" });
+            return extract(opts, cursor, { "param" });
         }
     }
-    return std::nullopt;
+    return {};
 }
 
 [[nodiscard]] std::optional<grep_result> grep(const fs::path& source, cli_options cli_opts)
@@ -222,7 +235,7 @@ public:
         return CXChildVisit_Recurse;
     });
     if (results.entries.empty()) {
-        return std::nullopt;
+        return {};
     }
     return results;
 }
@@ -232,10 +245,14 @@ std::vector<grep_result> grep(const cli_options& opts) noexcept
     std::vector<grep_result> results;
 
     for (const auto& source : opts.files) {
-        auto result = grep(source, opts);
+        if (fs::exists(source)) {
+            auto result = grep(source, opts);
 
-        if (result) {
-            results.emplace_back(std::move(*result));
+            if (result) {
+                results.emplace_back(std::move(*result));
+            }
+        } else {
+            std::cout << termcolor::red << "error: " << termcolor::reset << "Could not open source file " << source << '\n';
         }
     }
     return results;
