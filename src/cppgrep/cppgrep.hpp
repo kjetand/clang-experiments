@@ -2,6 +2,7 @@
 #define KLANG_CPPGREP_HPP
 
 #include <filesystem>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -28,7 +29,7 @@ struct grep_result {
 
 [[nodiscard]] std::vector<grep_result> grep(const cli_options& opts) noexcept;
 
-[[nodiscard]] result_type main(int argc, const char* argv[]);
+[[nodiscard]] result_type main(std::span<const char*> args) noexcept;
 
 }
 

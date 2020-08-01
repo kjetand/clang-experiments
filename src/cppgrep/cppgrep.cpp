@@ -1,6 +1,9 @@
 #include "cppgrep.hpp"
 
+#if _MSC_VER
 #include <array>
+#endif
+
 #include <optional>
 #include <string_view>
 #include <type_traits>
@@ -77,7 +80,7 @@ public:
     }
 };
 
-cli_options parse_args(int argc, const char* argv[])
+cli_options parse_args(std::span<const char*> args)
 {
     cli_options cli_opts {};
     cxxopts::Options opts("cppgrep", "Greps intelligently through C++ code");
@@ -92,7 +95,9 @@ cli_options parse_args(int argc, const char* argv[])
 
     opts.parse_positional({ "query", "positional" });
 
-    const auto result = opts.parse(argc, const_cast<char**&>(argv)); // :(
+    char** argv = const_cast<char**>(args.data()); // NOLINT :(
+    auto argc = static_cast<int>(args.size());
+    const auto result = opts.parse(argc, argv);
 
     if (result.count("help") != 0U) {
         std::puts(opts.help().c_str());
@@ -287,14 +292,14 @@ void print_grep_results(const std::vector<grep_result>& results) noexcept
     }
 }
 
-result_type main(int argc, const char* argv[])
+result_type main(std::span<const char*> args) noexcept
 {
     using klang::cppgrep::result_type;
 
     cli_options opts;
 
     try {
-        opts = parse_args(argc, argv);
+        opts = parse_args(args);
     } catch (const std::exception& ex) {
         std::puts(ex.what());
         return result_type::parse_args_failure;
