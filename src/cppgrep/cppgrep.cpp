@@ -44,7 +44,7 @@ constexpr std::array CLANG_ARGS { "-std=c++17" };
 class translation_unit {
 public:
     explicit translation_unit(const fs::path& source) noexcept
-        : _index(clang_createIndex(true, false))
+        : _index(clang_createIndex(1, 0))
         , _unit(clang_parseTranslationUnit(_index, source.string().c_str(), CLANG_ARGS.data(), static_cast<int>(CLANG_ARGS.size()), nullptr, 0, 0))
     {
     }
