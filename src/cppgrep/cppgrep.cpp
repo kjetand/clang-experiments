@@ -267,7 +267,7 @@ std::vector<grep_result> grep(const cli_options& opts) noexcept
                 results.emplace_back(std::move(*result));
             }
         } else {
-            std::cout << termcolor::red << "error: " << termcolor::reset << "Could not open source file " << source << '\n';
+            std::cout << termcolor::red << "error: " << termcolor::reset << "Could not open source file " << fs::absolute(source).generic_string() << '\n';
         }
     }
     return results;
@@ -276,7 +276,7 @@ std::vector<grep_result> grep(const cli_options& opts) noexcept
 void print_grep_results(const std::vector<grep_result>& results) noexcept
 {
     for (const auto& result : results) {
-        std::cout << termcolor::green << result.source << termcolor::reset << '\n';
+        std::cout << termcolor::green << fs::absolute(result.source).generic_string() << termcolor::reset << '\n';
 
         for (const auto& entry : result.entries) {
             std::cout << termcolor::blue << entry.line << ':' << entry.column << termcolor::reset << ' ' << entry.identifier;
@@ -289,6 +289,7 @@ void print_grep_results(const std::vector<grep_result>& results) noexcept
             }
             std::cout << '\n';
         }
+        std::cout << '\n';
     }
 }
 
