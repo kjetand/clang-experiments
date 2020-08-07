@@ -242,7 +242,7 @@ public:
 
     translation_unit tu(source);
     tu.visit_children([](auto cursor) {
-        if (auto location = clang_getCursorLocation(cursor); clang_Location_isInSystemHeader(location)) {
+        if (auto location = clang_getCursorLocation(cursor); clang_Location_isInSystemHeader(location) != 0 || clang_Location_isFromMainFile(location) == 0) {
             return CXChildVisit_Continue;
         }
         if (auto entry = extract_if(opts, cursor); entry) {
