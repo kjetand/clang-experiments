@@ -91,10 +91,10 @@ cli_options parse_args(std::span<char*> args)
     opts.add_options()("template", "Grep for class/struct template declarations only");
     opts.add_options()("function", "Grep for function declarations only");
     opts.add_options()("variable", "Grep for variable/member/param declarations only");
-    opts.add_options()("q,query", "Grep query string", cxxopts::value<std::string>(cli_opts.query));
+    opts.add_options()("q,query", "Optional grep query string", cxxopts::value<std::string>(cli_opts.query));
     opts.add_options()("positional", "Positional arguments", cxxopts::value<std::vector<fs::path>>(cli_opts.files));
 
-    opts.parse_positional({ "query", "positional" });
+    opts.parse_positional({ "positional" });
 
     auto** argv = args.data();
     auto argc = static_cast<int>(args.size());
@@ -102,9 +102,6 @@ cli_options parse_args(std::span<char*> args)
 
     if (result.count("help") != 0U) {
         std::puts(opts.help().c_str());
-    }
-    if (result.count("query") == 0U || cli_opts.query.empty()) {
-        throw std::runtime_error("Missing grep query");
     }
     if (cli_opts.files.empty()) {
         throw std::runtime_error("Missing at least one source input file");
@@ -175,7 +172,7 @@ public:
 
     const string_owner<clang_getCursorSpelling> spelling(cursor);
 
-    if (spelling.get().find(opts.query) == std::string::npos) {
+    if (!opts.query.empty() && spelling.get().find(opts.query) == std::string::npos) {
         return {};
     }
     auto [line, column] = get_line_info(cursor);
