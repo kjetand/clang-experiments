@@ -4,6 +4,7 @@
 #include <array>
 #endif
 
+#include <functional>
 #include <optional>
 #include <string_view>
 #include <type_traits>
@@ -255,7 +256,7 @@ public:
     return results;
 }
 
-std::vector<grep_result> grep(const cli_options& opts) noexcept
+void grep(const cli_options& opts, const std::function<void(const grep_result&)>& gather_results) noexcept
 {
     std::vector<grep_result> results;
 
@@ -264,33 +265,30 @@ std::vector<grep_result> grep(const cli_options& opts) noexcept
             auto result = grep(source, opts);
 
             if (result) {
-                results.emplace_back(std::move(*result));
+                gather_results(*result);
             }
         } else {
             std::cout << termcolor::red << "error: " << termcolor::reset << "Could not open source file " << fs::absolute(source).generic_string() << '\n';
         }
     }
-    return results;
 }
 
-void print_grep_results(const std::vector<grep_result>& results) noexcept
+void print_grep_result(const grep_result& result) noexcept
 {
-    for (const auto& result : results) {
-        std::cout << termcolor::green << fs::absolute(result.source).generic_string() << termcolor::reset << '\n';
+    std::cout << termcolor::green << fs::absolute(result.source).generic_string() << termcolor::reset << '\n';
 
-        for (const auto& entry : result.entries) {
-            std::cout << termcolor::blue << entry.line << ':' << entry.column << termcolor::reset << ' ' << entry.identifier;
+    for (const auto& entry : result.entries) {
+        std::cout << termcolor::blue << entry.line << ':' << entry.column << termcolor::reset << ' ' << entry.identifier;
 
-            if (!entry.tags.empty()) {
-                std::cout << ' ';
-            }
-            for (const auto& tag : entry.tags) {
-                std::cout << termcolor::yellow << '[' << tag << ']' << termcolor::reset << ' ';
-            }
-            std::cout << '\n';
+        if (!entry.tags.empty()) {
+            std::cout << ' ';
+        }
+        for (const auto& tag : entry.tags) {
+            std::cout << termcolor::yellow << '[' << tag << ']' << termcolor::reset << ' ';
         }
         std::cout << '\n';
     }
+    std::cout << '\n';
 }
 
 result_type main(std::span<char*> args) noexcept
@@ -305,7 +303,9 @@ result_type main(std::span<char*> args) noexcept
         std::puts(ex.what());
         return result_type::parse_args_failure;
     }
-    print_grep_results(grep(opts));
+    grep(opts, [](auto& result) {
+        print_grep_result(result);
+    });
     return result_type::success;
 }
 
