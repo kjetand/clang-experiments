@@ -4,6 +4,7 @@
 #include <array>
 #endif
 
+#include <algorithm>
 #include <functional>
 #include <optional>
 #include <string_view>
@@ -24,6 +25,7 @@ struct cli_options {
     bool grep_structs { false };
     bool grep_functions { false };
     bool grep_variables { false };
+    bool ignore_case { false };
     std::string query {};
     std::vector<fs::path> files;
 
@@ -92,6 +94,7 @@ cli_options parse_args(std::span<char*> args)
     opts.add_options()("function", "Grep for function declarations only");
     opts.add_options()("variable", "Grep for variable/member/param declarations only");
     opts.add_options()("q,query", "Optional grep query string", cxxopts::value<std::string>(cli_opts.query));
+    opts.add_options()("i,ignore-case", "Ignore case when using grep queries");
     opts.add_options()("positional", "Positional arguments", cxxopts::value<std::vector<fs::path>>(cli_opts.files));
 
     opts.parse_positional({ "positional" });
@@ -120,6 +123,9 @@ cli_options parse_args(std::span<char*> args)
     }
     if (result.count("variable") != 0U) {
         cli_opts.grep_variables = true;
+    }
+    if (result.count("ignore-case") != 0U) {
+        cli_opts.ignore_case = true;
     }
     if (!cli_opts.at_least_one_enabled()) {
         cli_opts.enable_all();
@@ -166,13 +172,23 @@ public:
     return result;
 }
 
+[[nodiscard]] bool has_substring(std::string_view needle, std::string_view haystack, const bool ignore_case) noexcept
+{
+    if (ignore_case) {
+        return std::search(haystack.begin(), haystack.end(), needle.begin(), needle.end(), [](auto c1, auto c2) noexcept {
+            return std::toupper(c1) == std::toupper(c2);
+        }) != haystack.end();
+    }
+    return haystack.find(needle) != std::string_view::npos;
+}
+
 [[nodiscard]] std::optional<grep_entry> extract(const cli_options& opts, const CXCursor& cursor, std::vector<std::string> tags) noexcept
 {
     grep_entry result;
 
     const string_owner<clang_getCursorSpelling> spelling(cursor);
 
-    if (!opts.query.empty() && spelling.get().find(opts.query) == std::string::npos) {
+    if (!opts.query.empty() && !has_substring(opts.query, spelling.get(), opts.ignore_case)) {
         return {};
     }
     auto [line, column] = get_line_info(cursor);
