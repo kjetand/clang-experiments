@@ -4,3 +4,6 @@
 [submodule "ext/termcolor"]
 	path = ext/termcolor
 	url = https://github.com/kjetand/termcolor
+[submodule "ext/Catch2"]
+	path = ext/Catch2
+	url = https://github.com/kjetand/Catch2

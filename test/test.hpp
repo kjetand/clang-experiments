@@ -1,6 +1,9 @@
 #ifndef KLANG_TEST_HPP
 #define KLANG_TEST_HPP
 
+#define CATCH_CONFIG_MAIN
+#include <catch2/catch.hpp>
+
 #include <filesystem>
 
 namespace fs = std::filesystem;

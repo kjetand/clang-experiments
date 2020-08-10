@@ -78,7 +78,9 @@ include_directories(
         ${PROJECT_SOURCE_DIR}/src
         ${PROJECT_SOURCE_DIR}/ext/cxxopts/include
         ${PROJECT_SOURCE_DIR}/ext/termcolor/include
+        ${PROJECT_SOURCE_DIR}/ext/Catch2/single_include
         ${LIBCLANG_INCLUDE_DIR})
 
 add_subdirectory(src)
+enable_testing()
 add_subdirectory(test)
