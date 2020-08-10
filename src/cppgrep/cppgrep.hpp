@@ -30,7 +30,7 @@ struct grep_result {
 
 void grep(const cli_options& opts, const std::function<void(const grep_result&)>& gather_results) noexcept;
 
-[[nodiscard]] result_type main(std::span<char*> args) noexcept;
+[[nodiscard]] result_type main(std::span<const char*> args) noexcept;
 
 }
 
