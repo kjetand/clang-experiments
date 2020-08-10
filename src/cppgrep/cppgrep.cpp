@@ -5,11 +5,10 @@
 #endif
 
 #include <algorithm>
-#include <functional>
 #include <optional>
 #include <string_view>
 #include <type_traits>
-#include <vector>
+#include <variant>
 
 #include <clang-c/Index.h>
 #include <cxxopts.hpp>
@@ -18,6 +17,14 @@
 namespace fs = std::filesystem;
 
 namespace klang::cppgrep {
+
+template <class... Ts>
+struct overloaded : Ts... {
+    using Ts::operator()...;
+};
+
+template <class... Ts>
+overloaded(Ts...) -> overloaded<Ts...>;
 
 struct cli_options {
     bool grep_classes { false };
@@ -83,7 +90,9 @@ public:
     }
 };
 
-cli_options parse_args(std::span<const char*> args)
+using parse_result = std::variant<std::monostate, cli_options>;
+
+parse_result parse_args(std::span<const char*> args)
 {
     cli_options cli_opts {};
     cxxopts::Options opts("cppgrep", "Greps intelligently through C++ code");
@@ -106,6 +115,7 @@ cli_options parse_args(std::span<const char*> args)
 
     if (result.count("help") != 0U) {
         std::puts(opts.help().c_str());
+        return {};
     }
     if (cli_opts.files.empty()) {
         throw std::runtime_error("Missing at least one source input file");
@@ -309,18 +319,26 @@ result_type main(std::span<const char*> args) noexcept
 {
     using klang::cppgrep::result_type;
 
-    cli_options opts;
+    parse_result parsed_args;
 
     try {
-        opts = parse_args(args);
+        parsed_args = parse_args(args);
     } catch (const std::exception& ex) {
         std::puts(ex.what());
         return result_type::parse_args_failure;
     }
-    grep(opts, [](auto& result) {
-        print_grep_result(result);
-    });
-    return result_type::success;
+    overloaded grep_visitor {
+        [](const cli_options& opts) {
+            grep(opts, [](auto& result) {
+                print_grep_result(result);
+            });
+            return result_type::success;
+        },
+        [](std::monostate /* unused */) {
+            return result_type::success;
+        }
+    };
+    return std::visit(grep_visitor, parsed_args);
 }
 
 }
