@@ -110,8 +110,7 @@ parse_result parse_args(std::span<const char*> args)
 
     auto** argv = args.data();
     auto argc = static_cast<int>(args.size());
-    // TODO: Remove const_cast when cxxopts supports 'const char**'
-    const auto result = opts.parse(argc, const_cast<char**&>(argv));
+    const auto result = opts.parse(argc, argv);
 
     if (result.count("help") != 0U) {
         std::puts(opts.help().c_str());
