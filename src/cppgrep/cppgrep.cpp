@@ -8,9 +8,8 @@
 #include <optional>
 #include <string_view>
 #include <type_traits>
-#include <variant>
+#include <unordered_map>
 
-#include <clang-c/Index.h>
 #include <cxxopts.hpp>
 #include <termcolor/termcolor.hpp>
 
@@ -192,65 +191,127 @@ public:
     return haystack.find(needle) != std::string_view::npos;
 }
 
-[[nodiscard]] std::optional<grep_entry> extract(const cli_options& opts, const CXCursor& cursor, std::vector<std::string> tags) noexcept
+[[nodiscard]] std::string get_spelling(const CXCursor& cursor) noexcept
 {
-    grep_entry result;
-
-    const string_owner<clang_getCursorSpelling> spelling(cursor);
-
-    if (!opts.query.empty() && !has_substring(opts.query, spelling.get(), opts.ignore_case)) {
-        return {};
-    }
-    auto [line, column] = get_line_info(cursor);
-    result.line = line;
-    result.column = column;
-    result.identifier = spelling.get();
-    result.tags = std::move(tags);
-
-    return result;
+    return std::string(string_owner<clang_getCursorSpelling>(cursor).get());
 }
 
-[[nodiscard]] std::optional<grep_entry> extract_if(const cli_options& opts, const CXCursor& cursor) noexcept
+tag::common_entry::common_entry(const CXCursor& cursor) noexcept
 {
-    auto kind = clang_getCursorKind(cursor);
+    const auto [l, c] = get_line_info(cursor);
+    line = l;
+    column = c;
+    identifier = get_spelling(cursor);
+}
 
-    if (opts.grep_classes && kind == CXCursor_ClassDecl) {
-        return extract(opts, cursor, { "class" });
+tag::class_decl::class_decl(const CXCursor& cursor) noexcept
+    : common_entry(cursor)
+{
+}
+
+tag::class_template::class_template(const CXCursor& cursor) noexcept
+    : common_entry(cursor)
+{
+}
+
+tag::class_template_partial::class_template_partial(const CXCursor& cursor) noexcept
+    : common_entry(cursor)
+{
+}
+
+tag::struct_decl::struct_decl(const CXCursor& cursor) noexcept
+    : common_entry(cursor)
+{
+}
+
+tag::function_decl::function_decl(const CXCursor& cursor) noexcept
+    : common_entry(cursor)
+{
+}
+
+tag::function_template::function_template(const CXCursor& cursor) noexcept
+    : common_entry(cursor)
+{
+}
+
+tag::conversion_function::conversion_function(const CXCursor& cursor) noexcept
+    : common_entry(cursor)
+{
+}
+
+tag::var_decl::var_decl(const CXCursor& cursor) noexcept
+    : common_entry(cursor)
+{
+}
+
+tag::field_decl::field_decl(const CXCursor& cursor) noexcept
+    : common_entry(cursor)
+{
+}
+
+tag::param_decl::param_decl(const CXCursor& cursor) noexcept
+    : common_entry(cursor)
+{
+}
+
+[[nodiscard]] std::optional<grep_entry> create_entry(const CXCursor& cursor) noexcept
+{
+    static const std::unordered_map<CXCursorKind, std::function<grep_entry(const CXCursor&)>> entry_factories {
+        { CXCursor_ClassDecl, [](const auto& c) { return tag::class_decl { c }; } },
+        { CXCursor_ClassTemplate, [](const auto& c) { return tag::class_template { c }; } },
+        { CXCursor_ClassTemplatePartialSpecialization, [](const auto& c) { return tag::class_template_partial { c }; } },
+        { CXCursor_StructDecl, [](const auto& c) { return tag::struct_decl { c }; } },
+        { CXCursor_FunctionDecl, [](const auto& c) { return tag::function_decl { c }; } },
+        { CXCursor_FunctionTemplate, [](const auto& c) { return tag::function_template { c }; } },
+        { CXCursor_ConversionFunction, [](const auto& c) { return tag::conversion_function { c }; } },
+        { CXCursor_VarDecl, [](const auto& c) { return tag::var_decl { c }; } },
+        { CXCursor_FieldDecl, [](const auto& c) { return tag::field_decl { c }; } },
+        { CXCursor_ParmDecl, [](const auto& c) { return tag::param_decl { c }; } }
+    };
+    const auto kind = clang_getCursorKind(cursor);
+    const auto factory = entry_factories.find(kind);
+
+    if (factory == entry_factories.cend()) {
+        return {};
     }
-    if (opts.grep_templates) {
-        if (kind == CXCursor_ClassTemplate) {
-            return extract(opts, cursor, { "template" });
-        }
-        if (kind == CXCursor_ClassTemplatePartialSpecialization) {
-            return extract(opts, cursor, { "template", "partial specialization" });
-        }
+    return factory->second(cursor);
+}
+
+[[nodiscard]] const tag::common_entry& parent_of(const grep_entry& entry) noexcept
+{
+    return std::visit(overloaded { [](const auto& e) -> const tag::common_entry& { return e; } }, entry);
+}
+
+[[nodiscard]] bool match_requested_type(const cli_options& opts, const grep_entry& entry) noexcept
+{
+    return std::visit(overloaded {
+                          [&opts](const tag::class_decl& /*unused*/) { return opts.grep_classes; },
+                          [&opts](const tag::class_template& /*unused*/) { return opts.grep_classes; },
+                          [&opts](const tag::class_template_partial& /*unused*/) { return opts.grep_classes; },
+                          [&opts](const tag::struct_decl& /*unused*/) { return opts.grep_structs; },
+                          [&opts](const tag::function_decl& /*unused*/) { return opts.grep_functions; },
+                          [&opts](const tag::function_template& /*unused*/) { return opts.grep_functions; },
+                          [&opts](const tag::conversion_function& /*unused*/) { return opts.grep_functions; },
+                          [&opts](const tag::var_decl& /*unused*/) { return opts.grep_variables; },
+                          [&opts](const tag::field_decl& /*unused*/) { return opts.grep_variables; },
+                          [&opts](const tag::param_decl& /*unused*/) { return opts.grep_variables; },
+                      },
+        entry);
+}
+
+[[nodiscard]] bool match_query(const cli_options& opts, const grep_entry& entry) noexcept
+{
+    return opts.query.empty() || has_substring(opts.query, parent_of(entry).identifier, opts.ignore_case);
+}
+
+[[nodiscard]] std::optional<grep_entry> get_entry(const cli_options& opts, const CXCursor& cursor) noexcept
+{
+    auto entry = create_entry(cursor);
+
+    if (!entry || !match_requested_type(opts, *entry) || !match_query(opts, *entry)) {
+        return {};
     }
-    if (opts.grep_structs && kind == CXCursor_StructDecl) {
-        return extract(opts, cursor, { "struct" });
-    }
-    if (opts.grep_functions) {
-        if (kind == CXCursor_FunctionDecl) {
-            return extract(opts, cursor, { "function" });
-        }
-        if (kind == CXCursor_FunctionTemplate) {
-            return extract(opts, cursor, { "function", "template" });
-        }
-        if (kind == CXCursor_ConversionFunction) {
-            return extract(opts, cursor, { "conversion function" });
-        }
-    }
-    if (opts.grep_variables) {
-        if (kind == CXCursor_VarDecl) {
-            return extract(opts, cursor, { "variable" });
-        }
-        if (kind == CXCursor_FieldDecl) {
-            return extract(opts, cursor, { "member" });
-        }
-        if (kind == CXCursor_ParmDecl) {
-            return extract(opts, cursor, { "param" });
-        }
-    }
-    return {};
+    return entry;
 }
 
 [[nodiscard]] std::optional<grep_result> grep(const fs::path& source, cli_options cli_opts)
@@ -268,7 +329,7 @@ public:
         if (auto location = clang_getCursorLocation(cursor); clang_Location_isInSystemHeader(location) != 0 || clang_Location_isFromMainFile(location) == 0) {
             return CXChildVisit_Continue;
         }
-        if (auto entry = extract_if(opts, cursor); entry) {
+        if (auto entry = get_entry(opts, cursor); entry) {
             results.entries.emplace_back(std::move(*entry));
         }
         return CXChildVisit_Recurse;
@@ -301,14 +362,7 @@ void print_grep_result(const grep_result& result) noexcept
     std::cout << termcolor::green << fs::absolute(result.source).generic_string() << termcolor::reset << '\n';
 
     for (const auto& entry : result.entries) {
-        std::cout << termcolor::blue << entry.line << ':' << entry.column << termcolor::reset << ' ' << entry.identifier;
-
-        if (!entry.tags.empty()) {
-            std::cout << ' ';
-        }
-        for (const auto& tag : entry.tags) {
-            std::cout << termcolor::yellow << '[' << tag << ']' << termcolor::reset << ' ';
-        }
+        std::cout << termcolor::blue << parent_of(entry).line << ':' << parent_of(entry).column << termcolor::reset << ' ' << parent_of(entry).identifier;
         std::cout << '\n';
     }
     std::cout << '\n';
@@ -339,5 +393,4 @@ result_type main(std::span<const char*> args) noexcept
     };
     return std::visit(grep_visitor, parsed_args);
 }
-
 }
