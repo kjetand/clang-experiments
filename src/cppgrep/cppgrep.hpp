@@ -20,54 +20,53 @@ enum class result_type : int {
 };
 
 namespace tag {
-    struct common_entry {
+    struct cursor {
         unsigned line;
         unsigned column;
         std::string identifier;
 
-        explicit common_entry(const CXCursor& cursor) noexcept;
+        explicit cursor(const CXCursor& cursor) noexcept;
     };
 
-    struct class_decl : common_entry {
-        explicit class_decl(const CXCursor& cursor) noexcept;
+    struct class_decl : cursor {
+        explicit class_decl(const CXCursor& c) noexcept;
     };
 
-    struct class_template : common_entry {
+    struct class_template : cursor {
         explicit class_template(const CXCursor& cursor) noexcept;
     };
 
-    struct class_template_partial : common_entry {
+    struct class_template_partial : cursor {
         explicit class_template_partial(const CXCursor& cursor) noexcept;
     };
 
-    struct struct_decl : common_entry {
+    struct struct_decl : cursor {
         explicit struct_decl(const CXCursor& cursor) noexcept;
     };
 
-    struct function_decl : common_entry {
+    struct function_decl : cursor {
         explicit function_decl(const CXCursor& cursor) noexcept;
     };
 
-    struct function_template : common_entry {
+    struct function_template : cursor {
         explicit function_template(const CXCursor& cursor) noexcept;
     };
 
-    struct conversion_function : common_entry {
+    struct conversion_function : cursor {
         explicit conversion_function(const CXCursor& cursor) noexcept;
     };
 
-    struct var_decl : common_entry {
+    struct var_decl : cursor {
         explicit var_decl(const CXCursor& cursor) noexcept;
     };
 
-    struct field_decl : common_entry {
+    struct field_decl : cursor {
         explicit field_decl(const CXCursor& cursor) noexcept;
     };
 
-    struct param_decl : common_entry {
+    struct param_decl : cursor {
         explicit param_decl(const CXCursor& cursor) noexcept;
     };
-
 }
 
 using grep_entry = std::variant<

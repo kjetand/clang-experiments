@@ -196,7 +196,7 @@ public:
     return std::string(string_owner<clang_getCursorSpelling>(cursor).get());
 }
 
-tag::common_entry::common_entry(const CXCursor& cursor) noexcept
+tag::cursor::cursor(const CXCursor& cursor) noexcept
 {
     const auto [l, c] = get_line_info(cursor);
     line = l;
@@ -204,57 +204,57 @@ tag::common_entry::common_entry(const CXCursor& cursor) noexcept
     identifier = get_spelling(cursor);
 }
 
-tag::class_decl::class_decl(const CXCursor& cursor) noexcept
-    : common_entry(cursor)
+tag::class_decl::class_decl(const CXCursor& c) noexcept
+    : cursor(c)
 {
 }
 
-tag::class_template::class_template(const CXCursor& cursor) noexcept
-    : common_entry(cursor)
+tag::class_template::class_template(const CXCursor& c) noexcept
+    : cursor(c)
 {
 }
 
-tag::class_template_partial::class_template_partial(const CXCursor& cursor) noexcept
-    : common_entry(cursor)
+tag::class_template_partial::class_template_partial(const CXCursor& c) noexcept
+    : cursor(c)
 {
 }
 
-tag::struct_decl::struct_decl(const CXCursor& cursor) noexcept
-    : common_entry(cursor)
+tag::struct_decl::struct_decl(const CXCursor& c) noexcept
+    : cursor(c)
 {
 }
 
-tag::function_decl::function_decl(const CXCursor& cursor) noexcept
-    : common_entry(cursor)
+tag::function_decl::function_decl(const CXCursor& c) noexcept
+    : cursor(c)
 {
 }
 
-tag::function_template::function_template(const CXCursor& cursor) noexcept
-    : common_entry(cursor)
+tag::function_template::function_template(const CXCursor& c) noexcept
+    : cursor(c)
 {
 }
 
-tag::conversion_function::conversion_function(const CXCursor& cursor) noexcept
-    : common_entry(cursor)
+tag::conversion_function::conversion_function(const CXCursor& c) noexcept
+    : cursor(c)
 {
 }
 
-tag::var_decl::var_decl(const CXCursor& cursor) noexcept
-    : common_entry(cursor)
+tag::var_decl::var_decl(const CXCursor& c) noexcept
+    : cursor(c)
 {
 }
 
-tag::field_decl::field_decl(const CXCursor& cursor) noexcept
-    : common_entry(cursor)
+tag::field_decl::field_decl(const CXCursor& c) noexcept
+    : cursor(c)
 {
 }
 
-tag::param_decl::param_decl(const CXCursor& cursor) noexcept
-    : common_entry(cursor)
+tag::param_decl::param_decl(const CXCursor& c) noexcept
+    : cursor(c)
 {
 }
 
-[[nodiscard]] std::optional<grep_entry> create_entry(const CXCursor& cursor) noexcept
+[[nodiscard]] std::optional<std::function<grep_entry(const CXCursor&)>> cursor_kind_to_factory(const CXCursorKind kind) noexcept
 {
     static const std::unordered_map<CXCursorKind, std::function<grep_entry(const CXCursor&)>> entry_factories {
         { CXCursor_ClassDecl, [](const auto& c) { return tag::class_decl { c }; } },
@@ -268,18 +268,27 @@ tag::param_decl::param_decl(const CXCursor& cursor) noexcept
         { CXCursor_FieldDecl, [](const auto& c) { return tag::field_decl { c }; } },
         { CXCursor_ParmDecl, [](const auto& c) { return tag::param_decl { c }; } }
     };
-    const auto kind = clang_getCursorKind(cursor);
     const auto factory = entry_factories.find(kind);
 
     if (factory == entry_factories.cend()) {
         return {};
     }
-    return factory->second(cursor);
+    return factory->second;
 }
 
-[[nodiscard]] const tag::common_entry& parent_of(const grep_entry& entry) noexcept
+[[nodiscard]] std::optional<grep_entry> create_entry(const CXCursor& cursor) noexcept
 {
-    return std::visit(overloaded { [](const auto& e) -> const tag::common_entry& { return e; } }, entry);
+    const auto factory = cursor_kind_to_factory(clang_getCursorKind(cursor));
+
+    if (factory) {
+        return (*factory)(cursor);
+    }
+    return {};
+}
+
+[[nodiscard]] const tag::cursor& cast_to_parent(const grep_entry& entry) noexcept
+{
+    return std::visit(overloaded { [](const auto& e) -> const tag::cursor& { return e; } }, entry);
 }
 
 [[nodiscard]] bool match_requested_type(const cli_options& opts, const grep_entry& entry) noexcept
@@ -301,7 +310,7 @@ tag::param_decl::param_decl(const CXCursor& cursor) noexcept
 
 [[nodiscard]] bool match_query(const cli_options& opts, const grep_entry& entry) noexcept
 {
-    return opts.query.empty() || has_substring(opts.query, parent_of(entry).identifier, opts.ignore_case);
+    return opts.query.empty() || has_substring(opts.query, cast_to_parent(entry).identifier, opts.ignore_case);
 }
 
 [[nodiscard]] std::optional<grep_entry> get_entry(const cli_options& opts, const CXCursor& cursor) noexcept
@@ -362,7 +371,7 @@ void print_grep_result(const grep_result& result) noexcept
     std::cout << termcolor::green << fs::absolute(result.source).generic_string() << termcolor::reset << '\n';
 
     for (const auto& entry : result.entries) {
-        std::cout << termcolor::blue << parent_of(entry).line << ':' << parent_of(entry).column << termcolor::reset << ' ' << parent_of(entry).identifier;
+        std::cout << termcolor::blue << cast_to_parent(entry).line << ':' << cast_to_parent(entry).column << termcolor::reset << ' ' << cast_to_parent(entry).identifier;
         std::cout << '\n';
     }
     std::cout << '\n';

@@ -22,7 +22,6 @@ else ()
           -Wall
           -Werror
           -Wextra
-          -Wshadow
           -Wnon-virtual-dtor
           -Wold-style-cast
           -Wcast-align
